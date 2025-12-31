@@ -160,40 +160,94 @@ function renderTime() {
   ).padStart(2, '0')}`;
 }
 
+const llamaElements = new Map();
+const itemElements = new WeakMap();
+
 function renderLlamas() {
-  habitat.querySelectorAll('.llama').forEach((node) => node.remove());
+  const currentIds = new Set();
+
   state.llamas.forEach((llama) => {
-    const el = document.createElement('div');
-    el.className = 'llama';
+    currentIds.add(llama.id);
+
+    let el = llamaElements.get(llama.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'llama';
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleSelection(llama.id);
+      });
+      habitat.appendChild(el);
+      llamaElements.set(llama.id, el);
+    }
+
+    // Update position and appearance
     el.style.left = `${llama.position.x}px`;
     el.style.top = `${llama.position.y}px`;
     el.style.backgroundColor = `rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})`;
+
+    // Update selected state
     if (selectedLlamas.has(llama.id)) {
       el.classList.add('selected');
+    } else {
+      el.classList.remove('selected');
     }
+
+    // Update bubble content
+    let bubble = el.querySelector('.bubble');
     if (llama.bubble) {
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
+      if (!bubble) {
+        bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        el.appendChild(bubble);
+      }
       bubble.textContent = llama.bubble;
-      el.appendChild(bubble);
+    } else if (bubble) {
+      bubble.remove();
     }
-    el.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleSelection(llama.id);
-    });
-    habitat.appendChild(el);
   });
+
+  // Remove llamas that no longer exist
+  for (const [id, el] of llamaElements.entries()) {
+    if (!currentIds.has(id)) {
+      el.remove();
+      llamaElements.delete(id);
+    }
+  }
 }
 
 function renderItems() {
-  habitat.querySelectorAll('.item').forEach((node) => node.remove());
+  const existingNodes = new Set(habitat.querySelectorAll('.item'));
+  const usedNodes = new Set();
+
   state.items.forEach((item) => {
-    const el = document.createElement('div');
-    el.className = `item ${item.type}`;
+    let el = itemElements.get(item);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = `item ${item.type}`;
+      itemElements.set(item, el);
+    } else {
+      // Ensure the base "item" class is present and update type-specific class.
+      el.className = `item ${item.type}`;
+    }
+
     el.style.left = `${item.x}px`;
     el.style.top = `${item.y}px`;
     el.textContent = itemIcons[item.type] || '◆';
-    habitat.appendChild(el);
+
+    if (el.parentNode !== habitat) {
+      habitat.appendChild(el);
+    }
+
+    usedNodes.add(el);
+    existingNodes.delete(el);
+  });
+
+  // Remove any item nodes that are no longer used
+  existingNodes.forEach((node) => {
+    if (!usedNodes.has(node)) {
+      node.remove();
+    }
   });
 }
 
