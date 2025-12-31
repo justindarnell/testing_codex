@@ -12,6 +12,7 @@ const simTimeLabel = document.getElementById('sim-time');
 
 const STORAGE_KEY = 'llamasim-state-v1';
 const MAX_DRIVE = 100;
+const MAX_BIOCHEM = 100;
 const TICK_MS = 800;
 const CRITICAL_DRIVE = 85;
 const SOCIAL_MIN = 15;
@@ -145,6 +146,15 @@ function normalizeLlama(llama) {
       neural: createNeuralCore(),
     };
   }
+  if (!normalized.biochem) {
+    normalized.biochem = createBiochemProfile();
+  }
+  if (!normalized.biochem?.hormones) {
+    normalized.biochem = {
+      ...(normalized.biochem ?? {}),
+      hormones: createHormoneProfile(),
+    };
+  }
   return normalized;
 }
 
@@ -203,6 +213,7 @@ function createLlama(parentA, parentB) {
     bubble: '',
     neglect: 0,
     isDead: false,
+    biochem: createBiochemProfile(parentA?.biochem, parentB?.biochem, dna),
   };
 }
 
@@ -227,6 +238,35 @@ function generateDna(parentDnaA, parentDnaB) {
       resilience: blendTrait(parentDnaA, parentDnaB, 'resilience'),
     },
     neural: blendNeuralCore(parentDnaA?.neural, parentDnaB?.neural),
+  };
+}
+
+function createBiochemProfile(parentA, parentB, dna = {}) {
+  const base = blendBiochem(parentA, parentB);
+  const resilience = dna.traits?.resilience ?? 0.5;
+  return {
+    energy: clamp(base.energy + resilience * 12, 20, MAX_BIOCHEM),
+    reward: clamp(base.reward, 0, MAX_BIOCHEM),
+    stress: clamp(base.stress - resilience * 10, 0, MAX_BIOCHEM),
+    immune: clamp(base.immune + resilience * 18, 10, MAX_BIOCHEM),
+    hormones: createHormoneProfile(parentA?.hormones, parentB?.hormones),
+  };
+}
+
+function blendBiochem(parentA = {}, parentB = {}) {
+  const fallback = () => randRange(30, 70);
+  return {
+    energy: ((parentA.energy ?? fallback()) + (parentB.energy ?? fallback())) / 2,
+    reward: ((parentA.reward ?? randRange(10, 30)) + (parentB.reward ?? randRange(10, 30))) / 2,
+    stress: ((parentA.stress ?? randRange(20, 40)) + (parentB.stress ?? randRange(20, 40))) / 2,
+    immune: ((parentA.immune ?? fallback()) + (parentB.immune ?? fallback())) / 2,
+  };
+}
+
+function createHormoneProfile(parentA = {}, parentB = {}) {
+  return {
+    calm: clamp(((parentA.calm ?? randRange(30, 70)) + (parentB.calm ?? randRange(30, 70))) / 2, 0, MAX_BIOCHEM),
+    focus: clamp(((parentA.focus ?? randRange(30, 70)) + (parentB.focus ?? randRange(30, 70))) / 2, 0, MAX_BIOCHEM),
   };
 }
 
@@ -511,6 +551,11 @@ function renderRoster() {
       ${driveRow('Boredom', llama.drives.boredom)}
       ${driveRow('Curiosity', llama.drives.curiosity)}
       ${driveRow('Love', llama.drives.love)}
+      ${driveRow('Energy', llama.biochem.energy)}
+      ${driveRow('Stress', llama.biochem.stress)}
+      ${driveRow('Immune', llama.biochem.immune)}
+      ${driveRow('Calm', llama.biochem.hormones.calm)}
+      ${driveRow('Focus', llama.biochem.hormones.focus)}
       ${driveRow('Resilience', llama.dna.traits.resilience * 100)}
       ${driveRow('Neural', neuralStability)}
     `;
@@ -602,6 +647,7 @@ function updateLlamas() {
       return;
     }
     updateDrives(llama);
+    updateBiochemistry(llama);
     updateMood(llama);
     chooseAction(llama);
     moveLlama(llama);
@@ -618,6 +664,45 @@ function updateDrives(llama) {
   llama.drives.social = clamp(llama.drives.social - 0.3 + llama.dna.traits.sociability, 0, MAX_DRIVE);
   llama.drives.love = clamp(llama.drives.love - 0.2 + llama.dna.traits.affection, 0, MAX_DRIVE);
   applyNeuralStabilization(llama);
+}
+
+function updateBiochemistry(llama) {
+  const stressLoad =
+    (llama.drives.hunger + llama.drives.sleep + llama.drives.boredom + llama.drives.curiosity) /
+    (4 * MAX_DRIVE);
+  const socialComfort = (llama.drives.social + llama.drives.love) / (2 * MAX_DRIVE);
+  const resilience = llama.dna.traits.resilience ?? 0.5;
+  const biochem = llama.biochem;
+  const calm = biochem.hormones.calm / MAX_BIOCHEM;
+  const focus = biochem.hormones.focus / MAX_BIOCHEM;
+  const rewardEase = biochem.reward / MAX_BIOCHEM;
+
+  biochem.stress = clamp(
+    biochem.stress + stressLoad * 6 - socialComfort * 4 - calm * 3,
+    0,
+    MAX_BIOCHEM
+  );
+  biochem.reward = clamp(biochem.reward * 0.94 + socialComfort * 6, 0, MAX_BIOCHEM);
+  biochem.energy = clamp(
+    biochem.energy - 1.1 + (1 - llama.drives.hunger / MAX_DRIVE) * 3 - biochem.stress * 0.015,
+    0,
+    MAX_BIOCHEM
+  );
+  biochem.immune = clamp(
+    biochem.immune + rewardEase * 2 + resilience * 2 - biochem.stress * 0.04,
+    0,
+    MAX_BIOCHEM
+  );
+  biochem.hormones.calm = clamp(
+    biochem.hormones.calm + rewardEase * 3 - biochem.stress * 0.05,
+    0,
+    MAX_BIOCHEM
+  );
+  biochem.hormones.focus = clamp(
+    biochem.hormones.focus + focus * 1.5 + (llama.drives.curiosity / MAX_DRIVE) * 4 - biochem.stress * 0.02,
+    0,
+    MAX_BIOCHEM
+  );
 }
 
 function updateMood(llama) {
@@ -649,24 +734,29 @@ function chooseAction(llama) {
   if (llama.drives.hunger > 70 && nearbyItem?.type === 'food' && nearbyItem.distance < 40) {
     bubble = 'nom nom';
     llama.drives.hunger = clamp(llama.drives.hunger - 30, 0, MAX_DRIVE);
+    grantReward(llama, 18);
     removeItem(nearbyItem.id);
     playSound('eat');
   } else if (llama.drives.sleep > 70 && nearbyItem?.type === 'bed' && nearbyItem.distance < 45) {
     bubble = 'zzz';
     llama.drives.sleep = clamp(llama.drives.sleep - 40, 0, MAX_DRIVE);
+    grantReward(llama, 16);
     playSound('sleep');
   } else if (llama.drives.boredom > 70 && nearbyItem?.type === 'toy' && nearbyItem.distance < 45) {
     bubble = 'play!';
     llama.drives.boredom = clamp(llama.drives.boredom - 35, 0, MAX_DRIVE);
+    grantReward(llama, 14);
     playSound('toy');
   } else if (llama.drives.curiosity > 60 && nearbyItem?.type === 'mirror' && nearbyItem.distance < 45) {
     bubble = 'ooh';
     llama.drives.curiosity = clamp(llama.drives.curiosity - 25, 0, MAX_DRIVE);
+    grantReward(llama, 12);
     playSound('mirror');
   } else if (socialMate && llama.drives.social < 40 && distance(llama.position, socialMate.position) < 90) {
     bubble = 'hiya';
     llama.drives.social = clamp(llama.drives.social + 20, 0, MAX_DRIVE);
     llama.drives.love = clamp(llama.drives.love + 10, 0, MAX_DRIVE);
+    grantReward(llama, 10);
   } else {
     bubble = stability < 0.35 ? pick(['reboot', 'static', 'sync?']) : pick(['...', 'hmm', 'brr', 'blep', 'loom']);
   }
@@ -674,9 +764,17 @@ function chooseAction(llama) {
   llama.bubble = bubble;
 }
 
+function grantReward(llama, amount) {
+  llama.biochem.reward = clamp(llama.biochem.reward + amount, 0, MAX_BIOCHEM);
+  llama.biochem.stress = clamp(llama.biochem.stress - amount * 0.6, 0, MAX_BIOCHEM);
+  llama.biochem.energy = clamp(llama.biochem.energy + amount * 0.4, 0, MAX_BIOCHEM);
+  llama.biochem.hormones.calm = clamp(llama.biochem.hormones.calm + amount * 0.5, 0, MAX_BIOCHEM);
+}
+
 function moveLlama(llama) {
   const frolicBoost = llama.mood === 'frolic' ? 10 : 0;
-  const speed = 12 + llama.dna.traits.curiosity * 8 + frolicBoost;
+  const focusBoost = (llama.biochem.hormones.focus / MAX_BIOCHEM) * 4;
+  const speed = 12 + llama.dna.traits.curiosity * 8 + frolicBoost + focusBoost;
   const dimensions = getHabitatDimensions();
   const target = getLlamaTarget(llama);
   if (target) {
@@ -762,6 +860,7 @@ function feedSelected() {
     return;
   }
   target.drives.hunger = clamp(target.drives.hunger - 35, 0, MAX_DRIVE);
+  grantReward(target, 20);
   target.bubble = 'nom';
   playSound('eat');
   renderAll();
@@ -811,9 +910,10 @@ function checkNeglect(llama) {
     llama.neglect = Math.max(0, llama.neglect - 2);
   }
   const stability = computeNeuralStability(llama);
-  llama.neglect = Math.max(0, llama.neglect - Math.round(stability * 2));
+  const immuneBuffer = (llama.biochem.immune / MAX_BIOCHEM) * 3;
+  llama.neglect = Math.max(0, llama.neglect - Math.round(stability * 2 + immuneBuffer));
 
-  if (llama.neglect >= NEGLECT_LIMIT) {
+  if (llama.neglect >= getNeglectLimit(llama)) {
     llama.isDead = true;
     llama.bubble = '...';
     selectedLlamas.delete(llama.id);
@@ -941,6 +1041,8 @@ function getPriorityNeed(llama) {
 function computeNeuralStability(llama) {
   const weights = llama.dna.neural?.weights ?? randomNeuralCore().weights;
   const bias = llama.dna.neural?.bias ?? 0;
+  const rewardBoost = (llama.biochem?.reward ?? 0) / MAX_BIOCHEM;
+  const stressLoad = (llama.biochem?.stress ?? 0) / MAX_BIOCHEM;
   const inputs = [
     1 - llama.drives.hunger / MAX_DRIVE,
     1 - llama.drives.sleep / MAX_DRIVE,
@@ -950,15 +1052,17 @@ function computeNeuralStability(llama) {
   const sum = inputs.reduce((acc, value, index) => acc + value * (weights[index] ?? 0), bias);
   const activation = 1 / (1 + Math.exp(-sum));
   const resilience = llama.dna.traits.resilience ?? 0.5;
-  return clamp(activation * (0.7 + resilience * 0.6), 0, 1);
+  const modulation = (1 + rewardBoost * 0.25) * (1 - stressLoad * 0.35);
+  return clamp(activation * (0.7 + resilience * 0.6) * modulation, 0, 1);
 }
 
 function applyNeuralStabilization(llama) {
   const stability = computeNeuralStability(llama);
+  const energyBoost = (llama.biochem?.energy ?? 0) / MAX_BIOCHEM;
   if (stability <= 0.05) {
     return;
   }
-  const stabilizer = stability * 1.6;
+  const stabilizer = stability * (1.4 + energyBoost * 0.5);
   if (llama.drives.hunger > 50) {
     llama.drives.hunger = clamp(llama.drives.hunger - stabilizer * 0.7, 0, MAX_DRIVE);
   }
@@ -977,6 +1081,12 @@ function applyNeuralStabilization(llama) {
   if (llama.drives.love < 35) {
     llama.drives.love = clamp(llama.drives.love + stabilizer * 0.3, 0, MAX_DRIVE);
   }
+}
+
+function getNeglectLimit(llama) {
+  const resilience = llama.dna.traits.resilience ?? 0.5;
+  const immune = llama.biochem?.immune ?? 50;
+  return NEGLECT_LIMIT + Math.round(resilience * 6 + immune / 25);
 }
 
 function getLlamaTarget(llama) {
