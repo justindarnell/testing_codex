@@ -174,20 +174,39 @@ body {
 
 .llama {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 28px;
   border: 2px solid #0b1027;
   background: var(--accent);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   image-rendering: pixelated;
   cursor: pointer;
+  border-radius: 12px;
+}
+
+.llama::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 22px;
+  left: 6px;
+  top: -14px;
+  border: 2px solid #0b1027;
+  background: inherit;
+  border-radius: 8px 8px 6px 6px;
 }
 
 .llama::after {
   content: '';
   position: absolute;
-  inset: 6px 8px 10px 6px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  width: 6px;
+  height: 10px;
+  left: 10px;
+  top: -22px;
+  background: inherit;
+  border: 2px solid #0b1027;
+  border-radius: 4px 4px 2px 2px;
+  box-shadow: 12px 0 0 0 inherit;
 }
 
 .llama.selected {
@@ -218,7 +237,7 @@ body {
   background: rgba(18, 26, 58, 0.7);
 }
 
-.item.snack {
+.item.food {
   border-color: #ff9b9b;
 }
 
@@ -249,11 +268,37 @@ body {
   border: 1px solid rgba(82, 255, 240, 0.5);
   padding: 10px;
   background: rgba(9, 12, 28, 0.7);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
 }
 
-.llama-card h3 {
-  margin: 0 0 6px;
-  font-size: 18px;
+.llama-card.selected {
+  box-shadow: 0 0 12px rgba(255, 184, 76, 0.8);
+  border-color: var(--warning);
+}
+
+.llama-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.llama-name-row label {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 14px;
+}
+
+.llama-name-row input {
+  flex: 1;
+  background: #0d1333;
+  border: 1px solid rgba(82, 255, 240, 0.6);
+  color: var(--text);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  padding: 4px 6px;
 }
 
 .llama-card p {
