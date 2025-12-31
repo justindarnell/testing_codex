@@ -1,14 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 :root {
-  --bg: #0b0f2a;
-  --panel: #121a3a;
-  --panel-border: #3d52ff;
-  --accent: #52fff0;
-  --accent-soft: rgba(82, 255, 240, 0.2);
-  --text: #e4f1ff;
-  --warning: #ffb84c;
-  --shadow: rgba(0, 0, 0, 0.45);
+  --bg: #090c15;
+  --bg-elevated: #101522;
+  --panel: rgba(20, 26, 40, 0.78);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --accent: #6ae4ff;
+  --accent-soft: rgba(106, 228, 255, 0.18);
+  --text: #f4f7ff;
+  --muted: rgba(244, 247, 255, 0.65);
+  --warning: #ffb454;
+  --shadow: rgba(6, 10, 20, 0.6);
 }
 
 * {
@@ -18,26 +20,21 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #1d275c, #0b0f2a 60%);
+  background: radial-gradient(circle at top left, #1b274b 0%, #0b1223 42%, #070a12 100%);
   color: var(--text);
-  font-family: 'VT323', monospace;
-  letter-spacing: 0.5px;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.1px;
 }
 
 .crt-overlay {
   position: fixed;
   inset: 0;
-  background: repeating-linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.04),
-      rgba(255, 255, 255, 0.04) 2px,
-      rgba(0, 0, 0, 0) 2px,
-      rgba(0, 0, 0, 0) 4px
-    ),
-    radial-gradient(circle at 30% 20%, rgba(82, 255, 240, 0.08), transparent 40%);
+  background: radial-gradient(circle at 20% 20%, rgba(106, 228, 255, 0.12), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(255, 180, 84, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 45%);
   pointer-events: none;
   mix-blend-mode: screen;
-  opacity: 0.35;
+  opacity: 0.4;
   z-index: 0;
 }
 
@@ -45,46 +42,49 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 20px 32px 10px;
-  border-bottom: 2px solid var(--panel-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
   z-index: 1;
 }
 
 .title-block h1 {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 22px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
   margin: 0 0 6px;
   color: var(--accent);
-  text-shadow: 0 0 8px rgba(82, 255, 240, 0.6);
+  text-shadow: 0 8px 24px rgba(106, 228, 255, 0.4);
 }
 
 .title-block p {
   margin: 0;
-  font-size: 18px;
-  opacity: 0.8;
+  font-size: 16px;
+  color: var(--muted);
 }
 
 .status-block {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .status-block button {
-  background: var(--panel);
-  border: 2px solid var(--panel-border);
+  background: linear-gradient(135deg, rgba(106, 228, 255, 0.18), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(106, 228, 255, 0.4);
   color: var(--text);
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  padding: 6px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 7px 14px;
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(6, 10, 20, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .status-block button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 8px var(--accent-soft);
+  box-shadow: 0 12px 30px rgba(106, 228, 255, 0.25);
+  border-color: rgba(106, 228, 255, 0.65);
 }
 
 .layout {
@@ -98,17 +98,20 @@ body {
 
 .panel {
   background: var(--panel);
-  border: 2px solid var(--panel-border);
-  box-shadow: 0 8px 24px var(--shadow);
-  padding: 16px;
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 48px var(--shadow);
+  padding: 18px;
   min-height: 200px;
+  border-radius: 16px;
 }
 
 .panel h2 {
   margin: 0 0 12px;
-  font-size: 20px;
+  font-size: 16px;
   color: var(--accent);
   text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .controls .control-row {
@@ -120,13 +123,22 @@ body {
 
 .controls button,
 .controls select {
-  background: #0d1333;
-  border: 2px solid var(--panel-border);
+  background: rgba(11, 17, 31, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  padding: 6px 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
   cursor: pointer;
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.controls button:hover,
+.controls select:hover {
+  border-color: rgba(106, 228, 255, 0.45);
+  box-shadow: 0 12px 20px rgba(6, 10, 20, 0.35);
+  transform: translateY(-1px);
 }
 
 .controls select {
@@ -134,51 +146,52 @@ body {
 }
 
 .hint {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  border-top: 1px dashed var(--panel-border);
+  font-size: 13px;
+  color: var(--muted);
+  border-top: 1px dashed rgba(255, 255, 255, 0.16);
   padding-top: 12px;
 }
 
 .habitat {
   position: relative;
   height: 540px;
-  border: 3px solid var(--accent);
-  box-shadow: inset 0 0 40px rgba(82, 255, 240, 0.15);
-  background: linear-gradient(135deg, rgba(17, 25, 58, 0.8), rgba(9, 12, 28, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow: inset 0 0 40px rgba(106, 228, 255, 0.1), 0 28px 48px rgba(6, 10, 20, 0.55);
+  background: linear-gradient(135deg, rgba(22, 30, 51, 0.9), rgba(10, 14, 26, 0.95));
   overflow: hidden;
 }
 
 .habitat.placing {
   cursor: crosshair;
-  box-shadow: inset 0 0 40px rgba(82, 255, 240, 0.15), 0 0 20px rgba(255, 184, 76, 0.6);
-  border-color: var(--warning);
+  box-shadow: inset 0 0 40px rgba(106, 228, 255, 0.18), 0 0 20px rgba(255, 180, 84, 0.45);
+  border-color: rgba(255, 180, 84, 0.8);
 }
 
 .habitat-grid {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(82, 255, 240, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 255, 240, 0.08) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.5;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.4;
 }
 
 .habitat-label {
   position: absolute;
   bottom: 12px;
   right: 16px;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .llama {
   position: absolute;
   width: 46px;
   height: 28px;
-  border: 2px solid #0b1027;
-  background: var(--accent);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(11, 16, 39, 0.6);
+  background: linear-gradient(135deg, #7deaff, #4aa2ff);
+  box-shadow: 0 10px 20px rgba(6, 10, 20, 0.45);
   image-rendering: pixelated;
   cursor: pointer;
   border-radius: 12px;
@@ -191,7 +204,7 @@ body {
   height: 22px;
   left: 6px;
   top: -14px;
-  border: 2px solid #0b1027;
+  border: 1px solid rgba(11, 16, 39, 0.6);
   background: inherit;
   border-radius: 8px 8px 6px 6px;
 }
@@ -204,7 +217,7 @@ body {
   left: 10px;
   top: -22px;
   background: inherit;
-  border: 2px solid #0b1027;
+  border: 1px solid rgba(11, 16, 39, 0.6);
   border-radius: 4px 4px 2px 2px;
   box-shadow: 12px 0 0 0 inherit;
 }
@@ -215,7 +228,7 @@ body {
   height: 10px;
   left: 7px;
   top: -30px;
-  border: 2px solid #0b1027;
+  border: 1px solid rgba(11, 16, 39, 0.6);
   border-radius: 6px 6px 4px 4px;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35);
   z-index: 2;
@@ -228,7 +241,7 @@ body {
   height: 10px;
   left: 5px;
   top: -10px;
-  border: 2px solid #0b1027;
+  border: 1px solid rgba(11, 16, 39, 0.6);
   border-bottom: none;
   border-radius: 6px 6px 0 0;
   background: inherit;
@@ -236,7 +249,7 @@ body {
 
 .llama.selected {
   outline: 3px solid var(--warning);
-  box-shadow: 0 0 16px rgba(255, 184, 76, 0.8);
+  box-shadow: 0 0 18px rgba(255, 180, 84, 0.7);
 }
 
 .llama .bubble {
@@ -244,11 +257,12 @@ body {
   top: -38px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(12, 18, 42, 0.9);
-  border: 1px solid var(--accent);
-  padding: 2px 6px;
-  font-size: 12px;
+  background: rgba(10, 14, 24, 0.9);
+  border: 1px solid rgba(106, 228, 255, 0.4);
+  padding: 4px 8px;
+  font-size: 11px;
   white-space: nowrap;
+  border-radius: 999px;
 }
 
 .llama.frolic {
@@ -264,11 +278,12 @@ body {
   position: absolute;
   width: 28px;
   height: 28px;
-  border: 2px dashed var(--accent);
+  border: 1px dashed rgba(106, 228, 255, 0.6);
   display: grid;
   place-items: center;
-  font-size: 16px;
-  background: rgba(18, 26, 58, 0.7);
+  font-size: 14px;
+  background: rgba(18, 26, 58, 0.5);
+  border-radius: 10px;
 }
 
 .item.food {
@@ -299,11 +314,18 @@ body {
 }
 
 .llama-card {
-  border: 1px solid rgba(82, 255, 240, 0.5);
-  padding: 10px;
-  background: rgba(9, 12, 28, 0.7);
+  border: 1px solid rgba(106, 228, 255, 0.25);
+  padding: 12px;
+  background: rgba(12, 16, 30, 0.7);
   cursor: pointer;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  border-radius: 14px;
+}
+
+.llama-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(6, 10, 20, 0.4);
+  border-color: rgba(106, 228, 255, 0.5);
 }
 
 .llama-card.dead {
@@ -321,41 +343,44 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .llama-name-row label {
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .llama-name-row input {
   flex: 1;
-  background: #0d1333;
-  border: 1px solid rgba(82, 255, 240, 0.6);
+  background: rgba(11, 17, 31, 0.9);
+  border: 1px solid rgba(106, 228, 255, 0.4);
   color: var(--text);
-  font-family: 'VT323', monospace;
-  font-size: 16px;
-  padding: 4px 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 8px;
 }
 
 .llama-card p {
   margin: 2px 0;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .drive-bar {
   height: 8px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   margin: 4px 0 6px;
   position: relative;
+  border-radius: 999px;
 }
 
 .drive-bar span {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, var(--accent), #4f7bff);
+  background: linear-gradient(90deg, var(--accent), #6bffcd);
+  border-radius: 999px;
 }
 
 @keyframes hop {
@@ -370,11 +395,11 @@ body {
 
 .footer {
   padding: 12px 32px 24px;
-  border-top: 2px solid var(--panel-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   justify-content: space-between;
-  font-size: 16px;
-  opacity: 0.7;
+  font-size: 12px;
+  color: var(--muted);
   position: relative;
   z-index: 1;
 }
