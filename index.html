@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LlamaSim</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="crt-overlay"></div>
+  <header class="topbar">
+    <div class="title-block">
+      <h1>LlamaSim</h1>
+      <p>Digital llamas with DNA, drives, and 90s charm.</p>
+    </div>
+    <div class="status-block">
+      <span id="sim-time">Day 1 • 08:00</span>
+      <button id="save-btn">Save</button>
+      <button id="reset-btn">Reset</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel controls">
+      <h2>Lab Controls</h2>
+      <div class="control-row">
+        <button id="feed-btn">Feed</button>
+        <button id="place-item-btn">Place Item</button>
+        <select id="item-type">
+          <option value="toy">Toy</option>
+          <option value="bed">Bed</option>
+          <option value="snack">Snack</option>
+          <option value="mirror">Mirror</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <button id="breed-btn">Breed Selected</button>
+        <button id="add-llama-btn">Generate Llama</button>
+      </div>
+      <div class="hint">
+        Click llamas to select parents. Place items by clicking the habitat.
+      </div>
+    </section>
+
+    <section class="habitat" id="habitat">
+      <div class="habitat-grid"></div>
+      <div class="habitat-label">Habitat Module A</div>
+    </section>
+
+    <section class="panel roster">
+      <h2>Research Roster</h2>
+      <div id="llama-list" class="llama-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Prototype build • Local persistence enabled</span>
+    <span>Sounds: retro bleeps (toggle in browser if needed)</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
