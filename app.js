@@ -24,6 +24,7 @@ let state = loadState();
 let selectedLlamas = new Set();
 let pendingPlacement = null;
 let audioContext;
+let simulationIntervalId = null;
 
 function init() {
   if (state.llamas.length === 0) {
@@ -329,7 +330,10 @@ function toggleSelection(id) {
 }
 
 function startSimulation() {
-  setInterval(() => {
+  if (simulationIntervalId !== null) {
+    clearInterval(simulationIntervalId);
+  }
+  simulationIntervalId = setInterval(() => {
     tickTime();
     updateLlamas();
     renderAll();
