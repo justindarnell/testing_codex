@@ -519,5 +519,31 @@ saveBtn.addEventListener('click', () => {
 });
 resetBtn.addEventListener('click', resetState);
 
-setInterval(saveState, 8000);
-init();
+let autosaveIntervalId = null;
+
+function startAutosave() {
+  if (autosaveIntervalId !== null) {
+    clearInterval(autosaveIntervalId);
+  }
+  autosaveIntervalId = setInterval(saveState, 8000);
+}
+
+window.addEventListener('beforeunload', () => {
+  if (autosaveIntervalId !== null) {
+    clearInterval(autosaveIntervalId);
+    autosaveIntervalId = null;
+  }
+});
+
+let hasInitialized = false;
+
+function boot() {
+  if (hasInitialized) {
+    return;
+  }
+  hasInitialized = true;
+  startAutosave();
+  init();
+}
+
+boot();
