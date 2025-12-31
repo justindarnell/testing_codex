@@ -1,1 +1,16 @@
-Placeholder for LlamaSim readme.
+# LlamaSim Prototype
+
+This repo hosts the static LlamaSim prototype.
+
+## GitHub Pages
+
+The site is deployed via GitHub Actions whenever changes land on `main`.
+
+### Enable Pages
+
+1. Go to **Settings → Pages** in the GitHub repo.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Push to `main` (or trigger the workflow manually) and your site will publish.
+
+The workflow lives at `.github/workflows/deploy.yml` and ships the root of the
+repository as the Pages artifact.
