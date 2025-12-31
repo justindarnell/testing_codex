@@ -12,6 +12,9 @@ const simTimeLabel = document.getElementById('sim-time');
 const STORAGE_KEY = 'llamasim-state-v1';
 const MAX_DRIVE = 100;
 const TICK_MS = 800;
+const CRITICAL_DRIVE = 85;
+const SOCIAL_MIN = 15;
+const NEGLECT_LIMIT = 12;
 
 const itemIcons = {
   toy: '◆',
@@ -101,6 +104,15 @@ function normalizeLlama(llama) {
   if (!Array.isArray(normalized.parents)) {
     normalized.parents = [];
   }
+  if (typeof normalized.neglect !== 'number') {
+    normalized.neglect = 0;
+  }
+  if (typeof normalized.isDead !== 'boolean') {
+    normalized.isDead = false;
+  }
+  if (!normalized.mood) {
+    normalized.mood = 'content';
+  }
   return normalized;
 }
 
@@ -156,6 +168,8 @@ function createLlama(parentA, parentB) {
       y: randRange(50, dimensions.height - 70),
     },
     bubble: '',
+    neglect: 0,
+    isDead: false,
   };
 }
 
@@ -282,6 +296,18 @@ function renderLlamas() {
       el.classList.remove('selected');
     }
 
+    if (llama.isDead) {
+      el.classList.add('dead');
+    } else {
+      el.classList.remove('dead');
+    }
+
+    if (llama.mood === 'frolic') {
+      el.classList.add('frolic');
+    } else {
+      el.classList.remove('frolic');
+    }
+
     // Update bubble content
     let bubble = el.querySelector('.bubble');
     if (llama.bubble) {
@@ -341,11 +367,23 @@ function renderItems() {
 }
 
 function renderRoster() {
+  const activeElement = document.activeElement;
+  const activeInputId = activeElement?.tagName === 'INPUT' ? activeElement.id : null;
+  const selectionStart = activeInputId ? activeElement.selectionStart : null;
+  const selectionEnd = activeInputId ? activeElement.selectionEnd : null;
+
   llamaList.innerHTML = '';
-  state.llamas.forEach((llama) => {
+  const aliveLlamas = state.llamas.filter((llama) => !llama.isDead);
+  const deadLlamas = state.llamas.filter((llama) => llama.isDead);
+  const sortedLlamas = [...aliveLlamas, ...deadLlamas];
+
+  sortedLlamas.forEach((llama) => {
     const card = document.createElement('div');
     card.className = 'llama-card';
     card.dataset.llamaId = llama.id;
+    if (llama.isDead) {
+      card.classList.add('dead');
+    }
     if (selectedLlamas.has(llama.id)) {
       card.classList.add('selected');
     }
@@ -381,6 +419,7 @@ function renderRoster() {
     const meta = document.createElement('div');
     meta.className = 'llama-meta';
     meta.innerHTML = `
+      <p>Status: ${llama.isDead ? 'Dead' : llama.mood}</p>
       <p>Generation: ${llama.generation}</p>
       <p>Parents: ${parentSummary(llama)}</p>
       <p>DNA color: rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})</p>
@@ -400,6 +439,16 @@ function renderRoster() {
     card.append(nameRow, meta, drives);
     llamaList.appendChild(card);
   });
+
+  if (activeInputId) {
+    const restoredInput = document.getElementById(activeInputId);
+    if (restoredInput) {
+      restoredInput.focus();
+      if (selectionStart !== null && selectionEnd !== null) {
+        restoredInput.setSelectionRange(selectionStart, selectionEnd);
+      }
+    }
+  }
 }
 
 function driveRow(label, value) {
@@ -428,6 +477,10 @@ function parentSummary(llama) {
 }
 
 function toggleSelection(id) {
+  const target = state.llamas.find((llama) => llama.id === id);
+  if (target?.isDead) {
+    return;
+  }
   if (selectedLlamas.has(id)) {
     selectedLlamas.delete(id);
   } else {
@@ -466,10 +519,16 @@ function tickTime() {
 
 function updateLlamas() {
   state.llamas.forEach((llama) => {
+    if (llama.isDead) {
+      return;
+    }
     updateDrives(llama);
+    updateMood(llama);
     chooseAction(llama);
     moveLlama(llama);
+    checkNeglect(llama);
   });
+  updateBackgroundMusic(state.llamas.some((llama) => !llama.isDead && llama.mood === 'frolic'));
 }
 
 function updateDrives(llama) {
@@ -481,7 +540,22 @@ function updateDrives(llama) {
   llama.drives.love = clamp(llama.drives.love - 0.3 + llama.dna.traits.affection, 0, MAX_DRIVE);
 }
 
+function updateMood(llama) {
+  const needsMet =
+    llama.drives.hunger < 25 &&
+    llama.drives.sleep < 25 &&
+    llama.drives.boredom < 25 &&
+    llama.drives.curiosity < 25 &&
+    llama.drives.social > 40 &&
+    llama.drives.love > 40;
+  llama.mood = needsMet ? 'frolic' : 'content';
+}
+
 function chooseAction(llama) {
+  if (llama.mood === 'frolic') {
+    llama.bubble = pick(['whee!', 'hop!', 'yay!', 'frolic']);
+    return;
+  }
   const nearbyItem = findNearestItem(llama);
   const socialMate = findNearestLlama(llama);
   let bubble = '';
@@ -515,7 +589,8 @@ function chooseAction(llama) {
 }
 
 function moveLlama(llama) {
-  const speed = 12 + llama.dna.traits.curiosity * 8;
+  const frolicBoost = llama.mood === 'frolic' ? 10 : 0;
+  const speed = 12 + llama.dna.traits.curiosity * 8 + frolicBoost;
   const dimensions = getHabitatDimensions();
   llama.position.x = clamp(llama.position.x + randRange(-speed, speed), 20, dimensions.width - 60);
   llama.position.y = clamp(llama.position.y + randRange(-speed, speed), 20, dimensions.height - 60);
@@ -532,7 +607,7 @@ function findNearestItem(llama) {
 
 function findNearestLlama(llama) {
   return state.llamas
-    .filter((other) => other.id !== llama.id)
+    .filter((other) => other.id !== llama.id && !other.isDead)
     .map((other) => ({
       llama: other,
       distance: distance(llama.position, other.position),
@@ -567,6 +642,10 @@ function feedSelected() {
     alert('Select a llama first.');
     return;
   }
+  if (target.isDead) {
+    alert('That llama has passed on.');
+    return;
+  }
   target.drives.hunger = clamp(target.drives.hunger - 35, 0, MAX_DRIVE);
   target.bubble = 'nom';
   playSound('eat');
@@ -584,6 +663,10 @@ function breedSelected() {
   if (!parentA || !parentB) {
     return;
   }
+  if (parentA.isDead || parentB.isDead) {
+    alert('Llamas need to be alive to breed.');
+    return;
+  }
   const child = createLlama(parentA, parentB);
   state.llamas.push(child);
   selectedLlamas.clear();
@@ -595,6 +678,93 @@ function addLlama() {
   state.llamas.push(createLlama());
   playSound('spawn');
   renderAll();
+}
+
+function checkNeglect(llama) {
+  const unmetNeeds = [
+    llama.drives.hunger > CRITICAL_DRIVE,
+    llama.drives.sleep > CRITICAL_DRIVE,
+    llama.drives.boredom > CRITICAL_DRIVE,
+    llama.drives.curiosity > CRITICAL_DRIVE,
+    llama.drives.social < SOCIAL_MIN,
+    llama.drives.love < SOCIAL_MIN,
+  ].filter(Boolean).length;
+
+  if (unmetNeeds > 0) {
+    llama.neglect = Math.min(NEGLECT_LIMIT, llama.neglect + unmetNeeds);
+  } else {
+    llama.neglect = Math.max(0, llama.neglect - 1);
+  }
+
+  if (llama.neglect >= NEGLECT_LIMIT) {
+    llama.isDead = true;
+    llama.bubble = '...';
+    selectedLlamas.delete(llama.id);
+  }
+}
+
+const backgroundMusic = {
+  oscillator: null,
+  gain: null,
+  timerId: null,
+  index: 0,
+};
+
+function updateBackgroundMusic(shouldPlay) {
+  if (shouldPlay) {
+    startBackgroundMusic();
+  } else {
+    stopBackgroundMusic();
+  }
+}
+
+function startBackgroundMusic() {
+  if (backgroundMusic.oscillator) {
+    return;
+  }
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.type = 'triangle';
+    gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+    oscillator.connect(gainNode).connect(audioContext.destination);
+    oscillator.start();
+
+    const notes = [523.25, 659.25, 783.99, 659.25, 523.25, 392.0];
+    backgroundMusic.index = 0;
+    backgroundMusic.timerId = setInterval(() => {
+      const note = notes[backgroundMusic.index % notes.length];
+      oscillator.frequency.setValueAtTime(note, audioContext.currentTime);
+      backgroundMusic.index += 1;
+    }, 350);
+
+    backgroundMusic.oscillator = oscillator;
+    backgroundMusic.gain = gainNode;
+  } catch (error) {
+    console.warn('Background music unavailable', error);
+  }
+}
+
+function stopBackgroundMusic() {
+  if (backgroundMusic.timerId) {
+    clearInterval(backgroundMusic.timerId);
+    backgroundMusic.timerId = null;
+  }
+  if (backgroundMusic.oscillator) {
+    backgroundMusic.oscillator.stop();
+    backgroundMusic.oscillator.disconnect();
+    backgroundMusic.oscillator = null;
+  }
+  if (backgroundMusic.gain) {
+    backgroundMusic.gain.disconnect();
+    backgroundMusic.gain = null;
+  }
 }
 
 function playSound(type) {
