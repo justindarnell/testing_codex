@@ -16,7 +16,7 @@ const TICK_MS = 800;
 const itemIcons = {
   toy: '◆',
   bed: '▦',
-  snack: '●',
+  food: '●',
   mirror: '▢',
 };
 
@@ -69,10 +69,10 @@ function loadState() {
         }
 
         if (Array.isArray(parsed.llamas)) {
-          normalized.llamas = parsed.llamas;
+          normalized.llamas = parsed.llamas.map((llama) => normalizeLlama(llama));
         }
         if (Array.isArray(parsed.items)) {
-          normalized.items = parsed.items;
+          normalized.items = parsed.items.map((item) => normalizeItem(item));
         }
 
         return normalized;
@@ -85,6 +85,34 @@ function loadState() {
   }
 
   return defaultState;
+}
+
+function normalizeLlama(llama) {
+  const normalized = { ...llama };
+  if (!normalized.id) {
+    normalized.id = crypto.randomUUID();
+  }
+  if (!normalized.name) {
+    normalized.name = generateUniqueName();
+  }
+  if (typeof normalized.generation !== 'number') {
+    normalized.generation = 1;
+  }
+  if (!Array.isArray(normalized.parents)) {
+    normalized.parents = [];
+  }
+  return normalized;
+}
+
+function normalizeItem(item) {
+  const normalized = { ...item };
+  if (normalized.type === 'snack') {
+    normalized.type = 'food';
+  }
+  if (!normalized.id) {
+    normalized.id = crypto.randomUUID();
+  }
+  return normalized;
 }
 
 function saveState() {
@@ -106,9 +134,13 @@ function resetState() {
 function createLlama(parentA, parentB) {
   const dna = generateDna(parentA?.dna, parentB?.dna);
   const dimensions = getHabitatDimensions();
+  const generation = parentA || parentB ? Math.max(parentA?.generation ?? 1, parentB?.generation ?? 1) + 1 : 1;
+  const parents = [parentA?.id, parentB?.id].filter(Boolean);
   return {
     id: crypto.randomUUID(),
-    name: generateName(),
+    name: generateUniqueName(),
+    generation,
+    parents,
     dna,
     drives: {
       hunger: randRange(10, 40),
@@ -182,6 +214,26 @@ function generateName() {
   const first = ['Neo', 'Pixel', 'Byte', 'Nova', 'Echo', 'Flux', 'Aria', 'Zara', 'Vivi', 'Rex'];
   const second = ['Llama', 'Wool', 'Circuit', 'Glow', 'Nimbus', 'Quark', 'Pulse', 'Drift', 'Fuzz'];
   return `${pick(first)} ${pick(second)}`;
+}
+
+function generateUniqueName() {
+  const existing = getExistingNames();
+  const base = generateName();
+  let candidate = base;
+  let counter = 2;
+  while (existing.has(candidate.toLowerCase())) {
+    candidate = `${base} ${counter}`;
+    counter += 1;
+  }
+  return candidate;
+}
+
+function getExistingNames(excludeId) {
+  return new Set(
+    state.llamas
+      .filter((llama) => llama.id !== excludeId)
+      .map((llama) => llama.name.toLowerCase())
+  );
 }
 
 function renderAll() {
@@ -293,10 +345,50 @@ function renderRoster() {
   state.llamas.forEach((llama) => {
     const card = document.createElement('div');
     card.className = 'llama-card';
-    card.innerHTML = `
-      <h3>${llama.name}</h3>
+    card.dataset.llamaId = llama.id;
+    if (selectedLlamas.has(llama.id)) {
+      card.classList.add('selected');
+    }
+    card.addEventListener('click', () => toggleSelection(llama.id));
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'llama-name-row';
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Name';
+    nameLabel.setAttribute('for', `llama-name-${llama.id}`);
+    const nameInput = document.createElement('input');
+    nameInput.id = `llama-name-${llama.id}`;
+    nameInput.type = 'text';
+    nameInput.value = llama.name;
+    nameInput.addEventListener('click', (event) => event.stopPropagation());
+    nameInput.addEventListener('change', () => {
+      const trimmed = nameInput.value.trim();
+      if (!trimmed) {
+        nameInput.value = llama.name;
+        return;
+      }
+      const existing = getExistingNames(llama.id);
+      if (existing.has(trimmed.toLowerCase())) {
+        alert('That name is already taken.');
+        nameInput.value = llama.name;
+        return;
+      }
+      llama.name = trimmed;
+      renderAll();
+    });
+    nameRow.append(nameLabel, nameInput);
+
+    const meta = document.createElement('div');
+    meta.className = 'llama-meta';
+    meta.innerHTML = `
+      <p>Generation: ${llama.generation}</p>
+      <p>Parents: ${parentSummary(llama)}</p>
       <p>DNA color: rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})</p>
       <p>Traits: ${traitSummary(llama.dna.traits)}</p>
+    `;
+
+    const drives = document.createElement('div');
+    drives.innerHTML = `
       ${driveRow('Hunger', llama.drives.hunger)}
       ${driveRow('Sleep', llama.drives.sleep)}
       ${driveRow('Social', llama.drives.social)}
@@ -304,6 +396,8 @@ function renderRoster() {
       ${driveRow('Curiosity', llama.drives.curiosity)}
       ${driveRow('Love', llama.drives.love)}
     `;
+
+    card.append(nameRow, meta, drives);
     llamaList.appendChild(card);
   });
 }
@@ -323,6 +417,16 @@ function traitSummary(traits) {
   return summary;
 }
 
+function parentSummary(llama) {
+  if (!llama.parents || llama.parents.length === 0) {
+    return 'Founders';
+  }
+  const names = llama.parents
+    .map((parentId) => state.llamas.find((candidate) => candidate.id === parentId)?.name)
+    .filter(Boolean);
+  return names.length ? names.join(' + ') : 'Unknown';
+}
+
 function toggleSelection(id) {
   if (selectedLlamas.has(id)) {
     selectedLlamas.delete(id);
@@ -333,6 +437,7 @@ function toggleSelection(id) {
     selectedLlamas.add(id);
   }
   renderLlamas();
+  renderRoster();
   playSound('select');
 }
 
@@ -381,7 +486,7 @@ function chooseAction(llama) {
   const socialMate = findNearestLlama(llama);
   let bubble = '';
 
-  if (llama.drives.hunger > 70 && nearbyItem?.type === 'snack') {
+  if (llama.drives.hunger > 70 && nearbyItem?.type === 'food') {
     bubble = 'nom nom';
     llama.drives.hunger = clamp(llama.drives.hunger - 30, 0, MAX_DRIVE);
     removeItem(nearbyItem.id);
@@ -535,8 +640,19 @@ function clamp(value, min, max) {
 
 feedBtn.addEventListener('click', feedSelected);
 placeItemBtn.addEventListener('click', () => {
+  if (pendingPlacement) {
+    pendingPlacement = null;
+    habitat.classList.remove('placing');
+    return;
+  }
   pendingPlacement = itemTypeSelect.value;
   habitat.classList.add('placing');
+});
+
+itemTypeSelect.addEventListener('change', () => {
+  if (pendingPlacement) {
+    pendingPlacement = itemTypeSelect.value;
+  }
 });
 
 habitat.addEventListener('click', (event) => {
@@ -547,8 +663,6 @@ habitat.addEventListener('click', (event) => {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
   placeItemAt(x, y, pendingPlacement);
-  pendingPlacement = null;
-  habitat.classList.remove('placing');
   playSound('select');
   renderAll();
 });
