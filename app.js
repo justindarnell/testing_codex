@@ -5,6 +5,7 @@ const placeItemBtn = document.getElementById('place-item-btn');
 const itemTypeSelect = document.getElementById('item-type');
 const breedBtn = document.getElementById('breed-btn');
 const addLlamaBtn = document.getElementById('add-llama-btn');
+const frolicBtn = document.getElementById('frolic-btn');
 const saveBtn = document.getElementById('save-btn');
 const resetBtn = document.getElementById('reset-btn');
 const simTimeLabel = document.getElementById('sim-time');
@@ -14,7 +15,7 @@ const MAX_DRIVE = 100;
 const TICK_MS = 800;
 const CRITICAL_DRIVE = 85;
 const SOCIAL_MIN = 15;
-const NEGLECT_LIMIT = 12;
+const NEGLECT_LIMIT = 20;
 
 const itemIcons = {
   toy: '◆',
@@ -113,6 +114,15 @@ function normalizeLlama(llama) {
   if (!normalized.mood) {
     normalized.mood = 'content';
   }
+  if (typeof normalized.manualFrolic !== 'boolean') {
+    normalized.manualFrolic = false;
+  }
+  if (!normalized.dna?.hatColor) {
+    normalized.dna = {
+      ...(normalized.dna ?? {}),
+      hatColor: randomColor(),
+    };
+  }
   return normalized;
 }
 
@@ -163,6 +173,7 @@ function createLlama(parentA, parentB) {
       love: randRange(40, 70),
     },
     mood: 'content',
+    manualFrolic: false,
     position: {
       x: randRange(50, dimensions.width - 70),
       y: randRange(50, dimensions.height - 70),
@@ -178,8 +189,13 @@ function generateDna(parentDnaA, parentDnaB) {
     parentDnaA?.color || randomColor(),
     parentDnaB?.color || randomColor()
   );
+  const baseHatColor = blendGenes(
+    parentDnaA?.hatColor || randomColor(),
+    parentDnaB?.hatColor || randomColor()
+  );
   return {
     color: mutateColor(baseColor),
+    hatColor: mutateColor(baseHatColor),
     traits: {
       sleepiness: blendTrait(parentDnaA, parentDnaB, 'sleepiness'),
       sociability: blendTrait(parentDnaA, parentDnaB, 'sociability'),
@@ -288,6 +304,14 @@ function renderLlamas() {
     el.style.left = `${llama.position.x}px`;
     el.style.top = `${llama.position.y}px`;
     el.style.backgroundColor = `rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})`;
+
+    let hat = el.querySelector('.hat');
+    if (!hat) {
+      hat = document.createElement('div');
+      hat.className = 'hat';
+      el.appendChild(hat);
+    }
+    hat.style.backgroundColor = `rgb(${llama.dna.hatColor.r}, ${llama.dna.hatColor.g}, ${llama.dna.hatColor.b})`;
 
     // Update selected state
     if (selectedLlamas.has(llama.id)) {
@@ -419,10 +443,11 @@ function renderRoster() {
     const meta = document.createElement('div');
     meta.className = 'llama-meta';
     meta.innerHTML = `
-      <p>Status: ${llama.isDead ? 'Dead' : llama.mood}</p>
+      <p>Status: ${llama.isDead ? 'Dead' : llama.mood}${llama.manualFrolic && !llama.isDead ? ' (manual)' : ''}</p>
       <p>Generation: ${llama.generation}</p>
       <p>Parents: ${parentSummary(llama)}</p>
       <p>DNA color: rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})</p>
+      <p>Hat color: rgb(${llama.dna.hatColor.r}, ${llama.dna.hatColor.g}, ${llama.dna.hatColor.b})</p>
       <p>Traits: ${traitSummary(llama.dna.traits)}</p>
     `;
 
@@ -532,15 +557,19 @@ function updateLlamas() {
 }
 
 function updateDrives(llama) {
-  llama.drives.hunger = clamp(llama.drives.hunger + 2, 0, MAX_DRIVE);
-  llama.drives.sleep = clamp(llama.drives.sleep + 1.5 * llama.dna.traits.sleepiness, 0, MAX_DRIVE);
-  llama.drives.boredom = clamp(llama.drives.boredom + 1, 0, MAX_DRIVE);
-  llama.drives.curiosity = clamp(llama.drives.curiosity + 0.6, 0, MAX_DRIVE);
-  llama.drives.social = clamp(llama.drives.social - 0.5 + llama.dna.traits.sociability, 0, MAX_DRIVE);
-  llama.drives.love = clamp(llama.drives.love - 0.3 + llama.dna.traits.affection, 0, MAX_DRIVE);
+  llama.drives.hunger = clamp(llama.drives.hunger + 1.2, 0, MAX_DRIVE);
+  llama.drives.sleep = clamp(llama.drives.sleep + 1.1 * llama.dna.traits.sleepiness, 0, MAX_DRIVE);
+  llama.drives.boredom = clamp(llama.drives.boredom + 0.8, 0, MAX_DRIVE);
+  llama.drives.curiosity = clamp(llama.drives.curiosity + 0.4, 0, MAX_DRIVE);
+  llama.drives.social = clamp(llama.drives.social - 0.3 + llama.dna.traits.sociability, 0, MAX_DRIVE);
+  llama.drives.love = clamp(llama.drives.love - 0.2 + llama.dna.traits.affection, 0, MAX_DRIVE);
 }
 
 function updateMood(llama) {
+  if (llama.manualFrolic) {
+    llama.mood = 'frolic';
+    return;
+  }
   const needsMet =
     llama.drives.hunger < 25 &&
     llama.drives.sleep < 25 &&
@@ -556,28 +585,29 @@ function chooseAction(llama) {
     llama.bubble = pick(['whee!', 'hop!', 'yay!', 'frolic']);
     return;
   }
-  const nearbyItem = findNearestItem(llama);
-  const socialMate = findNearestLlama(llama);
+  const priority = getPriorityNeed(llama);
+  const nearbyItem = priority?.type ? findNearestItemOfType(llama, priority.type) : null;
+  const socialMate = priority?.type === 'social' ? findNearestLlama(llama) : null;
   let bubble = '';
 
-  if (llama.drives.hunger > 70 && nearbyItem?.type === 'food') {
+  if (llama.drives.hunger > 70 && nearbyItem?.type === 'food' && nearbyItem.distance < 40) {
     bubble = 'nom nom';
     llama.drives.hunger = clamp(llama.drives.hunger - 30, 0, MAX_DRIVE);
     removeItem(nearbyItem.id);
     playSound('eat');
-  } else if (llama.drives.sleep > 70 && nearbyItem?.type === 'bed') {
+  } else if (llama.drives.sleep > 70 && nearbyItem?.type === 'bed' && nearbyItem.distance < 45) {
     bubble = 'zzz';
     llama.drives.sleep = clamp(llama.drives.sleep - 40, 0, MAX_DRIVE);
     playSound('sleep');
-  } else if (llama.drives.boredom > 70 && nearbyItem?.type === 'toy') {
+  } else if (llama.drives.boredom > 70 && nearbyItem?.type === 'toy' && nearbyItem.distance < 45) {
     bubble = 'play!';
     llama.drives.boredom = clamp(llama.drives.boredom - 35, 0, MAX_DRIVE);
     playSound('toy');
-  } else if (llama.drives.curiosity > 60 && nearbyItem?.type === 'mirror') {
+  } else if (llama.drives.curiosity > 60 && nearbyItem?.type === 'mirror' && nearbyItem.distance < 45) {
     bubble = 'ooh';
     llama.drives.curiosity = clamp(llama.drives.curiosity - 25, 0, MAX_DRIVE);
     playSound('mirror');
-  } else if (socialMate && llama.drives.social < 40) {
+  } else if (socialMate && llama.drives.social < 40 && distance(llama.position, socialMate.position) < 90) {
     bubble = 'hiya';
     llama.drives.social = clamp(llama.drives.social + 20, 0, MAX_DRIVE);
     llama.drives.love = clamp(llama.drives.love + 10, 0, MAX_DRIVE);
@@ -592,12 +622,41 @@ function moveLlama(llama) {
   const frolicBoost = llama.mood === 'frolic' ? 10 : 0;
   const speed = 12 + llama.dna.traits.curiosity * 8 + frolicBoost;
   const dimensions = getHabitatDimensions();
-  llama.position.x = clamp(llama.position.x + randRange(-speed, speed), 20, dimensions.width - 60);
-  llama.position.y = clamp(llama.position.y + randRange(-speed, speed), 20, dimensions.height - 60);
+  const target = getLlamaTarget(llama);
+  if (target) {
+    const dx = target.x - llama.position.x;
+    const dy = target.y - llama.position.y;
+    const distanceToTarget = Math.sqrt(dx * dx + dy * dy) || 1;
+    const jitter = randRange(-2, 2);
+    const step = Math.min(speed, distanceToTarget) + jitter;
+    llama.position.x = clamp(
+      llama.position.x + (dx / distanceToTarget) * step,
+      20,
+      dimensions.width - 60
+    );
+    llama.position.y = clamp(
+      llama.position.y + (dy / distanceToTarget) * step,
+      20,
+      dimensions.height - 60
+    );
+  } else {
+    llama.position.x = clamp(llama.position.x + randRange(-speed, speed), 20, dimensions.width - 60);
+    llama.position.y = clamp(llama.position.y + randRange(-speed, speed), 20, dimensions.height - 60);
+  }
 }
 
 function findNearestItem(llama) {
   return state.items
+    .map((item) => ({
+      ...item,
+      distance: distance(llama.position, item),
+    }))
+    .sort((a, b) => a.distance - b.distance)[0];
+}
+
+function findNearestItemOfType(llama, type) {
+  return state.items
+    .filter((item) => item.type === type)
     .map((item) => ({
       ...item,
       distance: distance(llama.position, item),
@@ -691,9 +750,9 @@ function checkNeglect(llama) {
   ].filter(Boolean).length;
 
   if (unmetNeeds > 0) {
-    llama.neglect = Math.min(NEGLECT_LIMIT, llama.neglect + unmetNeeds);
+    llama.neglect = Math.min(NEGLECT_LIMIT, llama.neglect + Math.ceil(unmetNeeds / 2));
   } else {
-    llama.neglect = Math.max(0, llama.neglect - 1);
+    llama.neglect = Math.max(0, llama.neglect - 2);
   }
 
   if (llama.neglect >= NEGLECT_LIMIT) {
@@ -796,6 +855,47 @@ function playSound(type) {
   }
 }
 
+function getPriorityNeed(llama) {
+  const needs = [
+    { key: 'hunger', type: 'food', high: true, threshold: 65 },
+    { key: 'sleep', type: 'bed', high: true, threshold: 65 },
+    { key: 'boredom', type: 'toy', high: true, threshold: 65 },
+    { key: 'curiosity', type: 'mirror', high: true, threshold: 55 },
+    { key: 'social', type: 'social', high: false, threshold: 35 },
+  ];
+
+  let best = null;
+  let bestScore = 0;
+
+  needs.forEach((need) => {
+    const value = clamp(llama.drives[need.key], 0, MAX_DRIVE);
+    const score = need.high ? value / MAX_DRIVE : (MAX_DRIVE - value) / MAX_DRIVE;
+    const meetsThreshold = need.high ? value >= need.threshold : value <= need.threshold;
+    if (meetsThreshold && score > bestScore) {
+      bestScore = score;
+      best = need;
+    }
+  });
+
+  return best;
+}
+
+function getLlamaTarget(llama) {
+  if (llama.mood === 'frolic') {
+    return null;
+  }
+  const priority = getPriorityNeed(llama);
+  if (!priority) {
+    return null;
+  }
+  if (priority.type === 'social') {
+    const mate = findNearestLlama(llama);
+    return mate ? { x: mate.position.x, y: mate.position.y } : null;
+  }
+  const item = findNearestItemOfType(llama, priority.type);
+  return item ? { x: item.x, y: item.y } : null;
+}
+
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
@@ -839,6 +939,7 @@ habitat.addEventListener('click', (event) => {
 
 breedBtn.addEventListener('click', breedSelected);
 addLlamaBtn.addEventListener('click', addLlama);
+frolicBtn.addEventListener('click', toggleFrolicSelected);
 saveBtn.addEventListener('click', () => {
   saveState();
   playSound('select');
@@ -873,3 +974,23 @@ function boot() {
 }
 
 boot();
+
+function toggleFrolicSelected() {
+  const targets = state.llamas.filter(
+    (llama) => selectedLlamas.has(llama.id) && !llama.isDead
+  );
+  if (targets.length === 0) {
+    alert('Select one or more llamas to toggle frolic mode.');
+    return;
+  }
+  const enable = targets.some((llama) => !llama.manualFrolic);
+  targets.forEach((llama) => {
+    llama.manualFrolic = enable;
+    if (enable) {
+      llama.mood = 'frolic';
+      llama.bubble = 'whee!';
+    }
+  });
+  playSound('select');
+  renderAll();
+}
