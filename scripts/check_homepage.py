@@ -1,11 +1,13 @@
 import contextlib
+import functools
 import http.server
+import os
 import socket
 import threading
 import time
 import urllib.request
 
-ROOT_DIR = "."
+ROOT_DIR = os.path.join(os.path.dirname(__file__), "..")
 
 
 def find_free_port() -> int:
@@ -15,7 +17,7 @@ def find_free_port() -> int:
 
 
 def run_server(port: int) -> http.server.ThreadingHTTPServer:
-    handler = http.server.SimpleHTTPRequestHandler
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT_DIR)
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
