@@ -25,6 +25,12 @@ let selectedLlamas = new Set();
 let pendingPlacement = null;
 let audioContext;
 
+function getHabitatDimensions() {
+  const width = habitat.clientWidth || 800;
+  const height = habitat.clientHeight || 600;
+  return { width, height };
+}
+
 function init() {
   if (state.llamas.length === 0) {
     state.llamas = [createLlama(), createLlama(), createLlama()];
@@ -69,6 +75,7 @@ function resetState() {
 
 function createLlama(parentA, parentB) {
   const dna = generateDna(parentA?.dna, parentB?.dna);
+  const dimensions = getHabitatDimensions();
   return {
     id: crypto.randomUUID(),
     name: generateName(),
@@ -83,8 +90,8 @@ function createLlama(parentA, parentB) {
     },
     mood: 'content',
     position: {
-      x: randRange(50, habitat.clientWidth - 70),
-      y: randRange(50, habitat.clientHeight - 70),
+      x: randRange(50, dimensions.width - 70),
+      y: randRange(50, dimensions.height - 70),
     },
     bubble: '',
   };
@@ -371,8 +378,9 @@ function chooseAction(llama) {
 
 function moveLlama(llama) {
   const speed = 12 + llama.dna.traits.curiosity * 8;
-  llama.position.x = clamp(llama.position.x + randRange(-speed, speed), 20, habitat.clientWidth - 60);
-  llama.position.y = clamp(llama.position.y + randRange(-speed, speed), 20, habitat.clientHeight - 60);
+  const dimensions = getHabitatDimensions();
+  llama.position.x = clamp(llama.position.x + randRange(-speed, speed), 20, dimensions.width - 60);
+  llama.position.y = clamp(llama.position.y + randRange(-speed, speed), 20, dimensions.height - 60);
 }
 
 function findNearestItem(llama) {
@@ -406,11 +414,12 @@ function distance(a, b) {
 }
 
 function placeItemAt(x, y, type) {
+  const dimensions = getHabitatDimensions();
   state.items.push({
     id: crypto.randomUUID(),
     type,
-    x: clamp(x, 20, habitat.clientWidth - 40),
-    y: clamp(y, 20, habitat.clientHeight - 40),
+    x: clamp(x, 20, dimensions.width - 40),
+    y: clamp(y, 20, dimensions.height - 40),
   });
 }
 
