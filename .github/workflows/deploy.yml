@@ -24,6 +24,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p dist
+          cp index.html dist/
+          cp app.js dist/
+          cp styles.css dist/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
