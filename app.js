@@ -16,6 +16,7 @@ const TICK_MS = 800;
 const CRITICAL_DRIVE = 85;
 const SOCIAL_MIN = 15;
 const NEGLECT_LIMIT = 20;
+const NEURAL_INPUTS = 4;
 
 const itemIcons = {
   toy: '◆',
@@ -123,6 +124,27 @@ function normalizeLlama(llama) {
       hatColor: randomColor(),
     };
   }
+  if (!normalized.dna?.color) {
+    normalized.dna = {
+      ...(normalized.dna ?? {}),
+      color: randomColor(),
+    };
+  }
+  if (!normalized.dna?.traits?.resilience) {
+    normalized.dna = {
+      ...(normalized.dna ?? {}),
+      traits: {
+        ...(normalized.dna?.traits ?? {}),
+        resilience: Math.random(),
+      },
+    };
+  }
+  if (!normalized.dna?.neural) {
+    normalized.dna = {
+      ...(normalized.dna ?? {}),
+      neural: createNeuralCore(),
+    };
+  }
   return normalized;
 }
 
@@ -202,7 +224,9 @@ function generateDna(parentDnaA, parentDnaB) {
       curiosity: blendTrait(parentDnaA, parentDnaB, 'curiosity'),
       playfulness: blendTrait(parentDnaA, parentDnaB, 'playfulness'),
       affection: blendTrait(parentDnaA, parentDnaB, 'affection'),
+      resilience: blendTrait(parentDnaA, parentDnaB, 'resilience'),
     },
+    neural: blendNeuralCore(parentDnaA?.neural, parentDnaB?.neural),
   };
 }
 
@@ -223,12 +247,12 @@ function blendGenes(colorA, colorB) {
 function mutateColor(color) {
   const mutation = () => clamp(Math.round(colorMutation()), 0, 255);
   function colorMutation() {
-    return color.r + randRange(-20, 20);
+    return color.r + randRange(-12, 12);
   }
   return {
     r: mutation(),
-    g: clamp(color.g + randRange(-20, 20), 0, 255),
-    b: clamp(color.b + randRange(-20, 20), 0, 255),
+    g: clamp(color.g + randRange(-18, 18), 0, 255),
+    b: clamp(color.b + randRange(-24, 24), 0, 255),
   };
 }
 
@@ -238,6 +262,32 @@ function randomColor() {
     g: randRange(60, 220),
     b: randRange(60, 220),
   };
+}
+
+function randomNeuralCore() {
+  return {
+    weights: Array.from({ length: NEURAL_INPUTS }, () => randRange(-1, 1)),
+    bias: randRange(-0.6, 0.6),
+  };
+}
+
+function blendNeuralCore(parentA, parentB) {
+  const baseA = parentA ?? randomNeuralCore();
+  const baseB = parentB ?? randomNeuralCore();
+  const weights = Array.from({ length: NEURAL_INPUTS }, (_, index) => {
+    const blended = (baseA.weights?.[index] ?? randRange(-1, 1)) +
+      (baseB.weights?.[index] ?? randRange(-1, 1));
+    return clamp(blended / 2 + randRange(-0.25, 0.25), -1.4, 1.4);
+  });
+  const biasBase = (baseA.bias ?? randRange(-0.5, 0.5)) + (baseB.bias ?? randRange(-0.5, 0.5));
+  return {
+    weights,
+    bias: clamp(biasBase / 2 + randRange(-0.2, 0.2), -1.2, 1.2),
+  };
+}
+
+function createNeuralCore() {
+  return blendNeuralCore();
 }
 
 function generateName() {
@@ -303,7 +353,7 @@ function renderLlamas() {
     // Update position and appearance
     el.style.left = `${llama.position.x}px`;
     el.style.top = `${llama.position.y}px`;
-    el.style.backgroundColor = `rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})`;
+    el.style.background = `rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})`;
 
     let hat = el.querySelector('.hat');
     if (!hat) {
@@ -311,7 +361,7 @@ function renderLlamas() {
       hat.className = 'hat';
       el.appendChild(hat);
     }
-    hat.style.backgroundColor = `rgb(${llama.dna.hatColor.r}, ${llama.dna.hatColor.g}, ${llama.dna.hatColor.b})`;
+    hat.style.background = `rgb(${llama.dna.hatColor.r}, ${llama.dna.hatColor.g}, ${llama.dna.hatColor.b})`;
 
     // Update selected state
     if (selectedLlamas.has(llama.id)) {
@@ -441,6 +491,7 @@ function renderRoster() {
     nameRow.append(nameLabel, nameInput);
 
     const meta = document.createElement('div');
+    const neuralStability = Math.round(computeNeuralStability(llama) * 100);
     meta.className = 'llama-meta';
     meta.innerHTML = `
       <p>Status: ${llama.isDead ? 'Dead' : llama.mood}${llama.manualFrolic && !llama.isDead ? ' (manual)' : ''}</p>
@@ -449,6 +500,7 @@ function renderRoster() {
       <p>DNA color: rgb(${llama.dna.color.r}, ${llama.dna.color.g}, ${llama.dna.color.b})</p>
       <p>Hat color: rgb(${llama.dna.hatColor.r}, ${llama.dna.hatColor.g}, ${llama.dna.hatColor.b})</p>
       <p>Traits: ${traitSummary(llama.dna.traits)}</p>
+      <p>Neural stability: ${neuralStability}%</p>
     `;
 
     const drives = document.createElement('div');
@@ -459,6 +511,8 @@ function renderRoster() {
       ${driveRow('Boredom', llama.drives.boredom)}
       ${driveRow('Curiosity', llama.drives.curiosity)}
       ${driveRow('Love', llama.drives.love)}
+      ${driveRow('Resilience', llama.dna.traits.resilience * 100)}
+      ${driveRow('Neural', neuralStability)}
     `;
 
     card.append(nameRow, meta, drives);
@@ -563,6 +617,7 @@ function updateDrives(llama) {
   llama.drives.curiosity = clamp(llama.drives.curiosity + 0.4, 0, MAX_DRIVE);
   llama.drives.social = clamp(llama.drives.social - 0.3 + llama.dna.traits.sociability, 0, MAX_DRIVE);
   llama.drives.love = clamp(llama.drives.love - 0.2 + llama.dna.traits.affection, 0, MAX_DRIVE);
+  applyNeuralStabilization(llama);
 }
 
 function updateMood(llama) {
@@ -585,6 +640,7 @@ function chooseAction(llama) {
     llama.bubble = pick(['whee!', 'hop!', 'yay!', 'frolic']);
     return;
   }
+  const stability = computeNeuralStability(llama);
   const priority = getPriorityNeed(llama);
   const nearbyItem = priority?.type ? findNearestItemOfType(llama, priority.type) : null;
   const socialMate = priority?.type === 'social' ? findNearestLlama(llama) : null;
@@ -612,7 +668,7 @@ function chooseAction(llama) {
     llama.drives.social = clamp(llama.drives.social + 20, 0, MAX_DRIVE);
     llama.drives.love = clamp(llama.drives.love + 10, 0, MAX_DRIVE);
   } else {
-    bubble = pick(['...', 'hmm', 'brr', 'blep', 'loom']);
+    bubble = stability < 0.35 ? pick(['reboot', 'static', 'sync?']) : pick(['...', 'hmm', 'brr', 'blep', 'loom']);
   }
 
   llama.bubble = bubble;
@@ -754,6 +810,8 @@ function checkNeglect(llama) {
   } else {
     llama.neglect = Math.max(0, llama.neglect - 2);
   }
+  const stability = computeNeuralStability(llama);
+  llama.neglect = Math.max(0, llama.neglect - Math.round(stability * 2));
 
   if (llama.neglect >= NEGLECT_LIMIT) {
     llama.isDead = true;
@@ -878,6 +936,47 @@ function getPriorityNeed(llama) {
   });
 
   return best;
+}
+
+function computeNeuralStability(llama) {
+  const weights = llama.dna.neural?.weights ?? randomNeuralCore().weights;
+  const bias = llama.dna.neural?.bias ?? 0;
+  const inputs = [
+    1 - llama.drives.hunger / MAX_DRIVE,
+    1 - llama.drives.sleep / MAX_DRIVE,
+    llama.drives.social / MAX_DRIVE,
+    1 - llama.drives.boredom / MAX_DRIVE,
+  ];
+  const sum = inputs.reduce((acc, value, index) => acc + value * (weights[index] ?? 0), bias);
+  const activation = 1 / (1 + Math.exp(-sum));
+  const resilience = llama.dna.traits.resilience ?? 0.5;
+  return clamp(activation * (0.7 + resilience * 0.6), 0, 1);
+}
+
+function applyNeuralStabilization(llama) {
+  const stability = computeNeuralStability(llama);
+  if (stability <= 0.05) {
+    return;
+  }
+  const stabilizer = stability * 1.6;
+  if (llama.drives.hunger > 50) {
+    llama.drives.hunger = clamp(llama.drives.hunger - stabilizer * 0.7, 0, MAX_DRIVE);
+  }
+  if (llama.drives.sleep > 50) {
+    llama.drives.sleep = clamp(llama.drives.sleep - stabilizer * 0.7, 0, MAX_DRIVE);
+  }
+  if (llama.drives.boredom > 45) {
+    llama.drives.boredom = clamp(llama.drives.boredom - stabilizer * 0.5, 0, MAX_DRIVE);
+  }
+  if (llama.drives.curiosity > 50) {
+    llama.drives.curiosity = clamp(llama.drives.curiosity - stabilizer * 0.4, 0, MAX_DRIVE);
+  }
+  if (llama.drives.social < 35) {
+    llama.drives.social = clamp(llama.drives.social + stabilizer * 0.4, 0, MAX_DRIVE);
+  }
+  if (llama.drives.love < 35) {
+    llama.drives.love = clamp(llama.drives.love + stabilizer * 0.3, 0, MAX_DRIVE);
+  }
 }
 
 function getLlamaTarget(llama) {
