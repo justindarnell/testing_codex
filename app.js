@@ -34,21 +34,50 @@ function init() {
 }
 
 function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (error) {
-      console.warn('Failed to parse saved state', error);
-    }
-  }
-  return {
+  const defaultState = {
     day: 1,
     hour: 8,
     minute: 0,
     llamas: [],
     items: [],
   };
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+
+      // Basic structural validation and normalization
+      if (parsed && typeof parsed === 'object') {
+        const normalized = { ...defaultState };
+
+        if (typeof parsed.day === 'number') {
+          normalized.day = parsed.day;
+        }
+        if (typeof parsed.hour === 'number') {
+          normalized.hour = parsed.hour;
+        }
+        if (typeof parsed.minute === 'number') {
+          normalized.minute = parsed.minute;
+        }
+
+        if (Array.isArray(parsed.llamas)) {
+          normalized.llamas = parsed.llamas;
+        }
+        if (Array.isArray(parsed.items)) {
+          normalized.items = parsed.items;
+        }
+
+        return normalized;
+      } else {
+        console.warn('Saved state has unexpected structure, using default state');
+      }
+    } catch (error) {
+      console.warn('Failed to parse saved state', error);
+    }
+  }
+
+  return defaultState;
 }
 
 function saveState() {
