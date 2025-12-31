@@ -38,6 +38,7 @@ def main() -> None:
         html = fetch_homepage(port)
         if "LlamaSim" not in html:
             raise RuntimeError("Homepage did not include expected LlamaSim content")
+        print("Homepage check passed successfully")
     finally:
         httpd.shutdown()
 
